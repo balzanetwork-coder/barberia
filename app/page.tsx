@@ -48,8 +48,8 @@ const ALL_SLOTS = generateSlots();
 
 // ─── FIREBASE HOOK (tiempo real con onSnapshot) ───────────────────────────────
 function useFirebaseData() {
-  const [bookings, setBookings] = useState([]);
-  const [blocked, setBlocked] = useState([]);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [blocked, setBlocked] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
