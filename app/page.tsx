@@ -390,13 +390,41 @@ const css = `
     .team-grid { grid-template-columns: 1fr; }
     .stats-grid { grid-template-columns: 1fr; }
     .contact-grid { grid-template-columns: 1fr; }
-    .booking-card { padding: 28px 20px; }
-    .slots-grid { grid-template-columns: repeat(3,1fr); }
     .block-modal-grid { grid-template-columns: 1fr; }
+
+    .booking-wrap { padding: 0; align-items: flex-start; min-height: 100vh; }
+    .booking-card { border-radius: 0; border-left: none; border-right: none; border-top: none; padding: 20px 16px 80px; min-height: 100vh; box-shadow: none; max-width: 100%; }
+    .booking-header h2 { font-size: 24px; }
+    .booking-header { margin-bottom: 20px; }
+    .steps { margin-bottom: 24px; }
+    .step-dot { width: 30px; height: 30px; font-size: 12px; }
+    .step-label { font-size: 10px; letter-spacing: 0; }
+    .services-grid { grid-template-columns: 1fr; gap: 10px; }
+    .service-card { padding: 16px; display: flex; align-items: center; justify-content: space-between; flex-direction: row; }
+    .service-name { margin-bottom: 0; font-size: 15px; }
+    .service-details { flex-direction: row; gap: 12px; }
+    .service-price { font-size: 18px; }
+    .calendar-wrap { padding: 14px; }
+    .cal-day { font-size: 13px; border-radius: 6px; }
+    .cal-day-label { font-size: 10px; }
+    .cal-month { font-size: 16px; }
+    .slots-grid { grid-template-columns: repeat(4,1fr); gap: 6px; max-height: none; }
+    .slot { padding: 10px 4px; font-size: 12px; border-radius: 6px; }
+    .period-tabs { gap: 6px; }
+    .period-tab { padding: 8px 4px; font-size: 13px; }
+    .form-input { padding: 13px 14px; font-size: 16px; }
+    .summary-box { padding: 16px; }
+    .btn-continue { padding: 18px; font-size: 17px; border-radius: 14px; position: sticky; bottom: 16px; box-shadow: 0 8px 32px rgba(0,0,0,.6); }
+    .team-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .team-grid-booking { grid-template-columns: repeat(3, 1fr) !important; gap: 10px; }
+    .team-img { aspect-ratio: 2/3; }
+    .team-img { height: 180px; }
   }
   @media (max-width: 480px) {
-    .slots-grid { grid-template-columns: repeat(2,1fr); }
     .hero-stats { gap: 24px; }
+    .slots-grid { grid-template-columns: repeat(3,1fr); }
+    .hero h1 { font-size: 36px; }
+    .team-grid { grid-template-columns: 1fr 1fr; }
   }
 `;
 
@@ -739,7 +767,7 @@ function BookingFlow({ onBack }) {
         {step === 2 && (
           <div className="page-enter">
             <p style={{ textAlign: "center", color: "var(--text3)", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 20 }}>Elige tu Barbero</p>
-            <div className="team-grid">
+            <div className="team-grid team-grid-booking">
               {PROFESSIONALS.map((p) => (
                 <div key={p.name} className={`team-card${prof?.name === p.name ? " selected" : ""}`} onClick={() => setProf(p)}>
                   <img src={p.image} alt={p.name} className="team-img" />
