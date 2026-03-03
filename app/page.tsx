@@ -502,7 +502,6 @@ function Landing({ onBook, setSubPage }) {
         <div className="hero-bg" />
         <div className="hero-lines" />
         <div className="hero-content page-enter">
-          <div className="hero-eyebrow">💈 Barbería Premium</div>
           <h1>Tu <span>barbería</span></h1>
           <p>Donde la tradición y la precisión se encuentran. Define tu estilo con los mejores profesionales.</p>
           <div className="hero-actions">
