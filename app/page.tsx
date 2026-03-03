@@ -1169,7 +1169,6 @@ export default function App() {
               <a className={subPage === "home" ? "active" : ""} onClick={() => { setSubPage("home"); goTo("home"); }} style={{ cursor: "pointer" }}>Inicio</a>
               <a className={subPage === "equipo" ? "active" : ""} onClick={() => { setSubPage("equipo"); goTo("home"); }} style={{ cursor: "pointer" }}>Equipo</a>
               <a className={subPage === "contacto" ? "active" : ""} onClick={() => { setSubPage("contacto"); goTo("home"); }} style={{ cursor: "pointer" }}>Contacto</a>
-              <a onClick={() => goTo("admin")} style={{ cursor: "pointer", opacity: .4, fontSize: 12 }}>Admin</a>
               <button className="btn-book-header nav" onClick={() => goTo("booking")}>Reservar Cita</button>
             </nav>
             <button className="hamburger" onClick={() => setMobileOpen(true)}><span /><span /><span /></button>
