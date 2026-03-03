@@ -674,7 +674,20 @@ function BookingFlow({ onBack }) {
       setTimeout(() => continueRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
   }, [time, step]);
 
-  const availSlots = useMemo(() => getAvailableSlots(date, prof?.name, service, bookings, blocked), [date, prof, service, bookings, blocked]);
+  const availSlots = useMemo(() => {
+    const slots = getAvailableSlots(date, prof?.name, service, bookings, blocked);
+    // Si es hoy, filtrar horas que ya han pasado (+ 30min de margen)
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+    if (date === todayStr) {
+      const currentMinutes = now.getHours() * 60 + now.getMinutes() + 30;
+      return slots.filter((t) => {
+        const [h, m] = t.split(":").map(Number);
+        return h * 60 + m > currentMinutes;
+      });
+    }
+    return slots;
+  }, [date, prof, service, bookings, blocked]);
   const slotsByPeriod = useMemo(() => ({
     Mañana: availSlots.filter((t) => parseInt(t) < 13),
     Mediodía: availSlots.filter((t) => parseInt(t) >= 13 && parseInt(t) < 16),
