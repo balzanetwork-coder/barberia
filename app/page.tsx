@@ -685,7 +685,17 @@ function BookingFlow({ onBack }) {
     if (contactErr || !name || !contact || saving) return;
     setSaving(true);
     try {
-      await addBooking({ service, professional: prof.name, date, time, clientName: name, contactType, contactValue: contact });
+      const bookingData = { service, professional: prof.name, date, time, clientName: name, contactType, contactValue: contact };
+      const id = await addBooking(bookingData);
+      // Enviar email de confirmación
+      if (contactType === "email") {
+        const cancelUrl = `${window.location.origin}/cancelar?id=${id}`;
+        await fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "confirmation", booking: { ...bookingData, id }, cancelUrl }),
+        });
+      }
       setShowSuccess(true);
       setTimeout(() => { setShowSuccess(false); onBack(); }, 3000);
     } catch (e) {
