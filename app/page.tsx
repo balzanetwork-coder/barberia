@@ -75,7 +75,7 @@ function useFirebaseData() {
     return () => { unsubBookings(); unsubBlocked(); };
   }, []);
 
-  const addBooking = useCallback(async (bookingData) => {
+  const addBooking = useCallback(async (bookingData: any) => {
     const docRef = await addDoc(collection(db, "bookings"), {
       ...bookingData,
       createdAt: new Date().toISOString(),
@@ -852,7 +852,7 @@ function AdminPanel({ onLogout }) {
     const cd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     const ct = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     return [...bookings].filter((b) => b.date > cd || (b.date === cd && b.time >= ct))
-      .sort((a, b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`));
+      .sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime());
   }, [bookings]);
 
   const deleteBooking = async (id) => {
