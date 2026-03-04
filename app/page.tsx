@@ -1144,7 +1144,6 @@ function AdminPanel({ onLogout }) {
             </p>
           </div>
         )}
-      </div>
 
         {tab === "config" && (
           <div className="admin-card page-enter">
