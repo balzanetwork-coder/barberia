@@ -95,6 +95,21 @@ export default function AdminPage() {
     setTimeout(() => setConfigSaved(false), 2500);
   };
 
+  const uploadPhoto = async (file: File, index: number) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", "barberia");
+    formData.append("cloud_name", "drr0rpv9o");
+    const res = await fetch("https://api.cloudinary.com/v1_1/drr0rpv9o/image/upload", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json();
+    if (data.secure_url) {
+      setEditProfs(editProfs.map((x, j) => j === index ? { ...x, image: data.secure_url } : x));
+    }
+  };
+
   const check = () => {
     if (pw === ADMIN_PASSWORD) setAuth(true);
     else { setErr(true); setPw(""); setTimeout(() => setErr(false), 2000); }
@@ -391,11 +406,19 @@ export default function AdminPage() {
               <h3 style={{fontSize:16,marginBottom:16,color:"#c9a227"}}>Barberos</h3>
               {editProfs.map((p,i)=>(
                 <div key={i} style={{background:"var(--bg3)",border:"1px solid #2a2a2a",borderRadius:10,padding:16,marginBottom:12,display:"flex",gap:16,alignItems:"center"}}>
-                  <img src={p.image} alt={p.name} style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"2px solid #333",flexShrink:0}} onError={(e)=>{(e.target as any).src="https://via.placeholder.com/56"}}/>
+                  <div style={{position:"relative",flexShrink:0}}>
+                    <img src={p.image||"https://via.placeholder.com/56"} alt={p.name} style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"2px solid #333",display:"block"}} onError={(e)=>{(e.target as any).src="https://via.placeholder.com/56"}}/>
+                    <label style={{position:"absolute",bottom:0,right:0,background:"#c9a227",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:12}}>
+                      📷
+                      <input type="file" accept="image/*" style={{display:"none"}} onChange={(e)=>e.target.files?.[0]&&uploadPhoto(e.target.files[0],i)}/>
+                    </label>
+                  </div>
                   <div style={{flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                     <input style={{background:"#141414",border:"1px solid #333",borderRadius:8,padding:"10px 12px",color:"#f0ece3",fontFamily:"sans-serif",fontSize:14,outline:"none"}} value={p.name} onChange={(e)=>setEditProfs(editProfs.map((x,j)=>j===i?{...x,name:e.target.value}:x))} placeholder="Nombre"/>
                     <input style={{background:"#141414",border:"1px solid #333",borderRadius:8,padding:"10px 12px",color:"#f0ece3",fontFamily:"sans-serif",fontSize:14,outline:"none"}} value={p.specialty} onChange={(e)=>setEditProfs(editProfs.map((x,j)=>j===i?{...x,specialty:e.target.value}:x))} placeholder="Especialidad"/>
-                    <input style={{background:"#141414",border:"1px solid #333",borderRadius:8,padding:"10px 12px",color:"#f0ece3",fontFamily:"sans-serif",fontSize:12,outline:"none",gridColumn:"1 / -1"}} value={p.image} onChange={(e)=>setEditProfs(editProfs.map((x,j)=>j===i?{...x,image:e.target.value}:x))} placeholder="URL de foto"/>
+                    <div style={{gridColumn:"1 / -1",fontSize:11,color:"#6b6258",padding:"4px 0"}}>
+                      {p.image ? "✓ Foto subida" : "Clic en 📷 para subir foto"}
+                    </div>
                   </div>
                   <button onClick={()=>setEditProfs(editProfs.filter((_,j)=>j!==i))} style={{background:"rgba(192,57,43,.15)",border:"1px solid rgba(192,57,43,.3)",color:"#e74c3c",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:14,flexShrink:0}}>x</button>
                 </div>
