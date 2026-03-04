@@ -1199,6 +1199,8 @@ function AdminPanel({ onLogout }) {
           </div>
         )}
 
+      </div>
+
       {selBooking && <BookingModal booking={selBooking} onClose={() => setSelBooking(null)} onCancel={deleteBooking} />}
 
       {showBlockModal && (
