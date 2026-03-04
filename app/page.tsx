@@ -537,7 +537,7 @@ function Landing({ onBook, setSubPage, professionals = PROFESSIONALS, services =
           <h2 className="section-title">Nuestros Servicios</h2>
           <p className="section-sub">Cortes y tratamientos realizados con precisión artesanal.</p>
           <div className="services-grid">
-            {SERVICES.map((s) => (
+            {services.map((s) => (
               <div key={s.id} className="service-card" onClick={onBook}>
                 <div className="service-name">{s.name}</div>
                 <div className="service-details">
@@ -586,7 +586,7 @@ function EquipoPage({ onBack, onBook, professionals = PROFESSIONALS }: any) {
       <span className="section-label">El Equipo</span>
       <h1 className="section-title">Nuestros Barberos</h1>
       <div className="team-grid">
-        {PROFESSIONALS.map((p) => (
+        {professionals.map((p) => (
           <div key={p.name} className="team-card">
             <img src={p.image} alt={p.name} className="team-img" />
             <div className="team-info">
@@ -805,7 +805,7 @@ function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONAL
           <div className="page-enter">
             <p style={{ textAlign: "center", color: "var(--text3)", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 20 }}>Elige tu Barbero</p>
             <div className="team-grid team-grid-booking">
-              {PROFESSIONALS.map((p) => (
+              {professionals.map((p) => (
                 <div key={p.name} className={`team-card${prof?.name === p.name ? " selected" : ""}`} onClick={() => setProf(p)}>
                   <img src={p.image} alt={p.name} className="team-img" />
                   <div className="team-info">
