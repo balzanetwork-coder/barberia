@@ -512,30 +512,170 @@ export default function AdminPage() {
             </div>
           )}
 
-          {tab==="earnings"&&(
+          {tab==="earnings"&&(()=>{
+            // ── Stats calculations ──
+            const allBks = bookings;
+            const statPeriod = earningsFilter;
+            const filtered = statPeriod==="ALL" ? allBks : allBks.filter(b=>b.professional===statPeriod);
+            const totalRev = filtered.reduce((s,b)=>s+b.service.price,0);
+            const totalCost = filtered.length * costPerSvc;
+
+            // Ingresos por barbero
+            const byBarber = PROFESSIONALS.map(p=>({
+              name:p.name,
+              count:allBks.filter(b=>b.professional===p.name).length,
+              rev:allBks.filter(b=>b.professional===p.name).reduce((s,b)=>s+b.service.price,0)
+            }));
+            const maxBarberRev = Math.max(...byBarber.map(b=>b.rev),1);
+
+            // Servicio más popular
+            const svcCount:{[k:string]:number} = {};
+            allBks.forEach(b=>{ svcCount[b.service.name]=(svcCount[b.service.name]||0)+1; });
+            const svcSorted = Object.entries(svcCount).sort((a,b)=>b[1]-a[1]);
+            const maxSvc = svcSorted[0]?.[1]||1;
+
+            // Día con más reservas
+            const dayNames=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+            const dayCount=Array(7).fill(0);
+            allBks.forEach(b=>{ const d=new Date(b.date.replace(/-/g,"/")).getDay(); dayCount[d]++; });
+            const maxDay=Math.max(...dayCount,1);
+
+            // Hora con más reservas
+            const hourCount:{[k:string]:number}={};
+            allBks.forEach(b=>{ const h=b.time.split(":")[0]+":00"; hourCount[h]=(hourCount[h]||0)+1; });
+            const hourSorted=Object.entries(hourCount).sort((a,b)=>b[1]-a[1]);
+            const maxHour=hourSorted[0]?.[1]||1;
+
+            // Evolución semanal (últimas 8 semanas)
+            const weeks:{[k:string]:number}={};
+            const now=new Date();
+            for(let i=7;i>=0;i--){
+              const d=new Date(now); d.setDate(d.getDate()-i*7);
+              const wk=`S${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;
+              weeks[wk]=0;
+            }
+            allBks.forEach(b=>{
+              const bd=new Date(b.date.replace(/-/g,"/"));
+              const diffDays=Math.floor((now.getTime()-bd.getTime())/(1000*60*60*24));
+              if(diffDays>=0&&diffDays<56){
+                const wIdx=Math.floor(diffDays/7);
+                const wd=new Date(now); wd.setDate(wd.getDate()-wIdx*7);
+                const wk=`S${String(wd.getDate()).padStart(2,"0")}/${String(wd.getMonth()+1).padStart(2,"0")}`;
+                if(wk in weeks) weeks[wk]++;
+              }
+            });
+            const weekEntries=Object.entries(weeks);
+            const maxWeek=Math.max(...weekEntries.map(e=>e[1]),1);
+
+            const Bar=({val,max,color="#c9a227",height=24}:{val:number,max:number,color?:string,height?:number})=>(
+              <div style={{background:"#0d0d0d",borderRadius:4,overflow:"hidden",height,flexGrow:1}}>
+                <div style={{height:"100%",width:`${Math.max(4,(val/max)*100)}%`,background:color,borderRadius:4,transition:"width .4s ease"}}/>
+              </div>
+            );
+
+            return (
             <div className="panel fe">
-              <h2 style={{marginBottom:24,fontSize:22}}>Análisis de Ganancias</h2>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:28}}>
+              <h2 style={{marginBottom:4,fontSize:22}}>💰 Estadísticas</h2>
+              <p style={{color:"#a09888",fontSize:14,marginBottom:24}}>Basado en {allBks.length} reservas totales</p>
+
+              {/* Filtro + coste */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:24}}>
                 <div>
-                  <label className="lbl">Filtrar Barbero</label>
+                  <label className="lbl">Filtrar barbero</label>
                   <select className="sel" value={earningsFilter} onChange={(e)=>setEarningsFilter(e.target.value)} style={{width:"100%"}}>
                     <option value="ALL">Todos</option>
                     {PROFESSIONALS.map((p)=><option key={p.name} value={p.name}>{p.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="lbl">Coste por Servicio (€)</label>
-                  <input type="number" value={costPerSvc} onChange={(e)=>setCostPerSvc(Number(e.target.value))} min={0} style={{width:"100%",background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:10,padding:"14px 16px",color:"var(--text)",fontFamily:"'DM Sans',sans-serif",fontSize:15,outline:"none"}} />
+                  <label className="lbl">Coste por servicio (€)</label>
+                  <input type="number" value={costPerSvc} onChange={(e)=>setCostPerSvc(Number(e.target.value))} min={0} style={{width:"100%",background:"var(--bg3)",border:"1px solid #333",borderRadius:10,padding:"13px 16px",color:"#f0ece3",fontFamily:"sans-serif",fontSize:15,outline:"none"}}/>
                 </div>
               </div>
-              <div className="stats">
-                <div className="sc"><div className="sc-n" style={{color:"#5dade2"}}>€{revenue.toFixed(0)}</div><div className="sc-l">Ingresos</div></div>
-                <div className="sc"><div className="sc-n" style={{color:"#e74c3c"}}>€{cost.toFixed(0)}</div><div className="sc-l">Costes</div></div>
-                <div className="sc"><div className="sc-n" style={{color:"var(--green)"}}>€{(revenue-cost).toFixed(0)}</div><div className="sc-l">Beneficio</div></div>
+
+              {/* KPIs */}
+              <div className="stats" style={{marginBottom:28}}>
+                <div className="sc"><div className="sc-n" style={{color:"#5dade2"}}>€{totalRev.toFixed(0)}</div><div className="sc-l">Ingresos</div></div>
+                <div className="sc"><div className="sc-n" style={{color:"#e74c3c"}}>€{totalCost.toFixed(0)}</div><div className="sc-l">Costes</div></div>
+                <div className="sc"><div className="sc-n" style={{color:"#27ae60"}}>€{(totalRev-totalCost).toFixed(0)}</div><div className="sc-l">Beneficio</div></div>
               </div>
-              <p style={{color:"var(--text3)",fontSize:13,textAlign:"center"}}>Basado en {earningsBks.length} reservas · €{costPerSvc} por servicio</p>
+
+              {/* Evolución semanal */}
+              <div style={{background:"var(--bg3)",border:"1px solid #2a2a2a",borderRadius:12,padding:20,marginBottom:20}}>
+                <h3 style={{fontSize:15,marginBottom:16,color:"#c9a227"}}>📈 Evolución semanal (últimas 8 semanas)</h3>
+                <div style={{display:"grid",gap:8}}>
+                  {weekEntries.map(([wk,cnt])=>(
+                    <div key={wk} style={{display:"grid",gridTemplateColumns:"80px 1fr 30px",gap:10,alignItems:"center"}}>
+                      <span style={{color:"#6b6258",fontSize:12}}>{wk}</span>
+                      <Bar val={cnt} max={maxWeek} color="#c9a227"/>
+                      <span style={{color:"#f0ece3",fontSize:13,fontWeight:600,textAlign:"right"}}>{cnt}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ingresos por barbero */}
+              <div style={{background:"var(--bg3)",border:"1px solid #2a2a2a",borderRadius:12,padding:20,marginBottom:20}}>
+                <h3 style={{fontSize:15,marginBottom:16,color:"#c9a227"}}>💈 Ingresos por barbero</h3>
+                <div style={{display:"grid",gap:12}}>
+                  {byBarber.map((b)=>(
+                    <div key={b.name}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                        <span style={{color:"#f0ece3",fontSize:14,fontWeight:600}}>{b.name}</span>
+                        <span style={{color:"#a09888",fontSize:13}}>{b.count} citas · <span style={{color:"#c9a227",fontWeight:700}}>€{b.rev}</span></span>
+                      </div>
+                      <Bar val={b.rev} max={maxBarberRev} color="#5dade2" height={16}/>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Servicio más popular */}
+              <div style={{background:"var(--bg3)",border:"1px solid #2a2a2a",borderRadius:12,padding:20,marginBottom:20}}>
+                <h3 style={{fontSize:15,marginBottom:16,color:"#c9a227"}}>⭐ Servicios más populares</h3>
+                <div style={{display:"grid",gap:10}}>
+                  {svcSorted.map(([name,cnt],i)=>(
+                    <div key={name}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                        <span style={{color:"#f0ece3",fontSize:14}}>{i===0?"🥇":i===1?"🥈":"🥉"} {name}</span>
+                        <span style={{color:"#c9a227",fontWeight:700,fontSize:13}}>{cnt} reservas</span>
+                      </div>
+                      <Bar val={cnt} max={maxSvc} color="#27ae60" height={14}/>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Día con más reservas */}
+              <div style={{background:"var(--bg3)",border:"1px solid #2a2a2a",borderRadius:12,padding:20,marginBottom:20}}>
+                <h3 style={{fontSize:15,marginBottom:16,color:"#c9a227"}}>📅 Reservas por día de la semana</h3>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8,alignItems:"end",height:120}}>
+                  {dayNames.map((d,i)=>(
+                    <div key={d} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,height:"100%",justifyContent:"flex-end"}}>
+                      <span style={{color:"#c9a227",fontSize:12,fontWeight:700}}>{dayCount[i]||""}</span>
+                      <div style={{width:"100%",borderRadius:"4px 4px 0 0",background:dayCount[i]===Math.max(...dayCount)?"#c9a227":"#2a2a2a",height:`${Math.max(8,(dayCount[i]/maxDay)*80)}px`,transition:"height .4s"}}/>
+                      <span style={{color:"#6b6258",fontSize:11}}>{d}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Hora con más reservas */}
+              <div style={{background:"var(--bg3)",border:"1px solid #2a2a2a",borderRadius:12,padding:20}}>
+                <h3 style={{fontSize:15,marginBottom:16,color:"#c9a227"}}>🕐 Horas más demandadas</h3>
+                <div style={{display:"grid",gap:8}}>
+                  {hourSorted.slice(0,6).map(([h,cnt])=>(
+                    <div key={h} style={{display:"grid",gridTemplateColumns:"60px 1fr 30px",gap:10,alignItems:"center"}}>
+                      <span style={{color:"#a09888",fontSize:13}}>{h}</span>
+                      <Bar val={cnt} max={maxHour} color="#9b59b6" height={20}/>
+                      <span style={{color:"#f0ece3",fontSize:13,fontWeight:600,textAlign:"right"}}>{cnt}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          )}
+            );
+          })()}
         </div>
       </div>
 
