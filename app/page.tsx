@@ -671,7 +671,7 @@ function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONAL
   const [calMonth, setCalMonth] = useState(new Date());
   const [saving, setSaving] = useState(false);
 
-  const { bookings, blocked, loading, addBooking, schedules } = useFirebaseData();
+  const { bookings, blocked, loading, addBooking } = useFirebaseData();
   const timeSlotsRef = useRef(null);
   const continueRef = useRef(null);
 
