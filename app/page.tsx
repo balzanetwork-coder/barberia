@@ -109,8 +109,10 @@ function useFirebaseData() {
     await setDoc(doc(db, "config", "main"), cfg);
   }, []);
 
+  const schedules = config?.schedules || {};
+
   return {
-    bookings, blocked, loading, config,
+    bookings, blocked, loading, config, schedules,
     addBooking, removeBooking,
     addBlockedSlot, removeBlockedSlot,
     saveConfig,
@@ -654,7 +656,7 @@ function ContactoPage({ onBack }) {
 }
 
 // ─── BOOKING FLOW ─────────────────────────────────────────────────────────────
-function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONALS }: any) {
+function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONALS, schedules = {} }: any) {
   const [step, setStep] = useState(1);
   const [service, setService] = useState(null);
   const [prof, setProf] = useState(null);
@@ -669,7 +671,7 @@ function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONAL
   const [calMonth, setCalMonth] = useState(new Date());
   const [saving, setSaving] = useState(false);
 
-  const { bookings, blocked, loading, addBooking } = useFirebaseData();
+  const { bookings, blocked, loading, addBooking, schedules } = useFirebaseData();
   const timeSlotsRef = useRef(null);
   const continueRef = useRef(null);
 
@@ -690,19 +692,38 @@ function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONAL
   }, [time, step]);
 
   const availSlots = useMemo(() => {
-    const slots = getAvailableSlots(date, prof?.name, service, bookings, blocked);
-    // Si es hoy, filtrar horas que ya han pasado (+ 30min de margen)
+    let slots = getAvailableSlots(date, prof?.name, service, bookings, blocked);
+    // Filter by barber schedule
+    if (date && prof?.name && schedules[prof.name]) {
+      const dayNames = ["Domingo","Lunes","Martes","Miercoles","Jueves","Viernes","Sabado"];
+      const dow = dayNames[new Date(date.replace(/-/g,"/")).getDay()];
+      const sc = schedules[prof.name][dow];
+      if (!sc || !sc.on) {
+        slots = [];
+      } else {
+        const [sh, sm] = sc.start.split(":").map(Number);
+        const [eh, em] = sc.end.split(":").map(Number);
+        const startMin = sh * 60 + sm;
+        const endMin = eh * 60 + em;
+        slots = slots.filter((t) => {
+          const [th, tm] = t.split(":").map(Number);
+          const tMin = th * 60 + tm;
+          return tMin >= startMin && tMin + (service?.duration||15) <= endMin;
+        });
+      }
+    }
+    // Filter past slots for today
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
     if (date === todayStr) {
       const currentMinutes = now.getHours() * 60 + now.getMinutes() + 30;
-      return slots.filter((t) => {
+      slots = slots.filter((t) => {
         const [h, m] = t.split(":").map(Number);
         return h * 60 + m > currentMinutes;
       });
     }
     return slots;
-  }, [date, prof, service, bookings, blocked]);
+  }, [date, prof, service, bookings, blocked, schedules]);
   const slotsByPeriod = useMemo(() => ({
     Mañana: availSlots.filter((t) => parseInt(t) < 13),
     Mediodía: availSlots.filter((t) => parseInt(t) >= 13 && parseInt(t) < 16),
@@ -1328,7 +1349,7 @@ export default function App() {
           </footer>
         </>
       )}
-      {page === "booking" && <div style={{ paddingTop: 64 }}><BookingFlow onBack={() => goTo("home")} services={liveServices} professionals={liveProfessionals} /></div>}
+      {page === "booking" && <div style={{ paddingTop: 64 }}><BookingFlow onBack={() => goTo("home")} services={liveServices} professionals={liveProfessionals} schedules={appConfig?.schedules||{}} /></div>}
       {page === "admin" && (adminAuth ? <AdminPanel onLogout={() => { setAdminAuth(false); goTo("home"); }} /> : <AdminLogin onSuccess={() => setAdminAuth(true)} />)}
     </>
   );

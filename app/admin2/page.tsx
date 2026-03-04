@@ -81,16 +81,21 @@ export default function AdminPage() {
   const [editServices, setEditServices] = useState(DEFAULT_SERVICES);
   const [editProfs, setEditProfs] = useState(DEFAULT_PROFESSIONALS);
   const [configSaved, setConfigSaved] = useState(false);
+  const DAYS = ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado"];
+  const HOURS = Array.from({length:12},(_, i)=>`${String(i+10).padStart(2,"0")}:00`);
+  const makeDefaultSchedule = () => Object.fromEntries(["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado"].map(d=>[d,{on:true,start:"10:00",end:"21:00"}]));
+  const [schedules, setSchedules] = useState<any>({});
 
   useEffect(() => {
     if (config) {
       if (config.services) setEditServices(config.services);
       if (config.professionals) setEditProfs(config.professionals);
+      if (config.schedules) setSchedules(config.schedules);
     }
   }, [config]);
 
   const handleSaveConfig = async () => {
-    await saveConfig({ services: editServices, professionals: editProfs });
+    await saveConfig({ services: editServices, professionals: editProfs, schedules });
     setConfigSaved(true);
     setTimeout(() => setConfigSaved(false), 2500);
   };
@@ -240,7 +245,25 @@ export default function AdminPage() {
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
     @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
     .fe{animation:fadeUp .35s ease}
-    @media(max-width:768px){.stats{grid-template-columns:1fr}.bmg{grid-template-columns:1fr}.tabs{flex-wrap:wrap}}
+    @media(max-width:768px){
+      .stats{grid-template-columns:1fr}
+      .bmg{grid-template-columns:1fr}
+      .tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+      .admin{padding:16px 12px 80px}
+      .hdr{margin-bottom:16px}
+      .hdr h1{font-size:24px}
+      .panel{padding:16px}
+      .bk{flex-direction:column;align-items:flex-start;gap:8px}
+      .bk>div:last-child{display:flex;align-items:center;justify-content:space-between;width:100%}
+      .price{font-size:18px}
+      .sc-n{font-size:28px}
+      .ctrl{flex-direction:column;align-items:stretch}
+      .sel{width:100%}
+      .gwrap{font-size:11px}
+      th,td{padding:4px 2px!important;font-size:10px!important}
+      .live{font-size:12px;padding:5px 10px}
+      .mb{padding:20px 16px}
+    }
   `;
 
   if (!auth) return (
@@ -323,7 +346,7 @@ export default function AdminPage() {
           </div>
           <div className="live"><span className="dot"/>Sincronizado · {bookings.length} reservas</div>
           <div className="tabs">
-            {[["bookings","📅 Reservas"],["avail","🚫 Disponibilidad"],["earnings","💰 Ganancias"],["config","⚙️ Config"]].map(([id,l])=>(
+            {[["bookings","📅 Reservas"],["avail","🚫 Disponibilidad"],["earnings","💰 Ganancias"],["horarios","🕐 Horarios"],["config","⚙️ Config"]].map(([id,l])=>(
               <button key={id} className={`tab${tab===id?" on":""}`} onClick={()=>setTab(id)}>{l}</button>
             ))}
           </div>
@@ -427,11 +450,65 @@ export default function AdminPage() {
                 style={{background:"rgba(201,162,39,.08)",border:"1px dashed rgba(201,162,39,.3)",color:"#c9a227",borderRadius:10,padding:"10px 20px",cursor:"pointer",fontSize:14,width:"100%",marginBottom:32}}>
                 + Añadir barbero
               </button>
-              <button onClick={handleSaveConfig}
+
+                            <button onClick={handleSaveConfig}
                 style={{width:"100%",padding:16,background:configSaved?"rgba(39,174,96,.2)":"linear-gradient(135deg,#c9a227,#8a6d18)",border:configSaved?"1px solid rgba(39,174,96,.4)":"none",color:configSaved?"rgba(39,174,96,.9)":"#000",borderRadius:12,cursor:"pointer",fontFamily:"sans-serif",fontSize:16,fontWeight:700}}>
                 {configSaved?"Guardado correctamente":"Guardar cambios"}
               </button>
               <p style={{color:"#6b6258",fontSize:12,textAlign:"center",marginTop:12}}>Los cambios se aplican en tiempo real en la web.</p>
+            </div>
+          )}
+
+          {tab==="horarios"&&(
+            <div className="panel fe">
+              <h2 style={{marginBottom:8,fontSize:22}}>🕐 Horarios</h2>
+              <p style={{color:"var(--text2)",fontSize:14,marginBottom:24}}>Define qué días y horas trabaja cada barbero. Los clientes solo verán huecos dentro de este horario.</p>
+              {editProfs.map((prof)=>{
+                const profSched = schedules[prof.name] || {};
+                return (
+                  <div key={prof.name} style={{background:"var(--bg3)",border:"1px solid #2a2a2a",borderRadius:12,padding:20,marginBottom:16}}>
+                    <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+                      <img src={prof.image||"https://via.placeholder.com/40"} style={{width:40,height:40,borderRadius:"50%",objectFit:"cover",border:"2px solid #333"}}/>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:16,color:"#f0ece3"}}>{prof.name}</div>
+                        <div style={{fontSize:12,color:"#6b6258"}}>{prof.specialty}</div>
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gap:10}}>
+                      {DAYS.map((day)=>{
+                        const sc = profSched[day] || {on:true,start:"10:00",end:"21:00"};
+                        const setDay = (val:any) => setSchedules((prev:any)=>({...prev,[prof.name]:{...(prev[prof.name]||{}),[day]:val}}));
+                        return (
+                          <div key={day} style={{background:"#0d0d0d",borderRadius:8,padding:"10px 14px",display:"grid",gridTemplateColumns:"1fr auto",gap:12,alignItems:"center"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:10}}>
+                              <input type="checkbox" checked={sc.on} onChange={(e)=>setDay({...sc,on:e.target.checked})} style={{accentColor:"#c9a227",width:18,height:18,cursor:"pointer",flexShrink:0}}/>
+                              <span style={{color:sc.on?"#f0ece3":"#6b6258",fontSize:14,fontWeight:sc.on?600:400,minWidth:80}}>{day}</span>
+                              {!sc.on && <span style={{color:"#6b6258",fontSize:13}}>Día libre</span>}
+                            </div>
+                            {sc.on&&(
+                              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                <select value={sc.start} onChange={(e)=>setDay({...sc,start:e.target.value})}
+                                  style={{background:"#1c1c1c",border:"1px solid #333",borderRadius:6,padding:"6px 10px",color:"#f0ece3",fontSize:13,outline:"none",cursor:"pointer"}}>
+                                  {HOURS.map((h)=><option key={h} value={h}>{h}</option>)}
+                                </select>
+                                <span style={{color:"#6b6258",fontSize:12}}>—</span>
+                                <select value={sc.end} onChange={(e)=>setDay({...sc,end:e.target.value})}
+                                  style={{background:"#1c1c1c",border:"1px solid #333",borderRadius:6,padding:"6px 10px",color:"#f0ece3",fontSize:13,outline:"none",cursor:"pointer"}}>
+                                  {HOURS.map((h)=><option key={h} value={h}>{h}</option>)}
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              <button onClick={handleSaveConfig}
+                style={{width:"100%",padding:16,background:configSaved?"rgba(39,174,96,.2)":"linear-gradient(135deg,#c9a227,#8a6d18)",border:configSaved?"1px solid rgba(39,174,96,.4)":"none",color:configSaved?"rgba(39,174,96,.9)":"#000",borderRadius:12,cursor:"pointer",fontFamily:"sans-serif",fontSize:16,fontWeight:700,marginTop:8,transition:"all .3s"}}>
+                {configSaved?"✓ Guardado":"Guardar horarios"}
+              </button>
             </div>
           )}
 
