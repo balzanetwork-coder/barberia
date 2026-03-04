@@ -344,7 +344,7 @@ export default function AdminPage() {
             <h1 style={{fontSize:32}}>Panel Admin</h1>
             <button className="logout" onClick={()=>setAuth(false)}>↩ Salir</button>
           </div>
-          <div className="live"><span className="dot"/>Sincronizado · {bookings.length} reservas</div>
+
           <div className="tabs">
             {[["bookings","📅 Reservas"],["avail","🚫 Disponibilidad"],["earnings","💰 Ganancias"],["horarios","🕐 Horarios"],["config","⚙️ Config"]].map(([id,l])=>(
               <button key={id} className={`tab${tab===id?" on":""}`} onClick={()=>setTab(id)}>{l}</button>
