@@ -7,6 +7,7 @@ import {
   addDoc,
   deleteDoc,
   doc,
+  setDoc,
   onSnapshot,
   query,
   orderBy,
@@ -95,10 +96,24 @@ function useFirebaseData() {
     await deleteDoc(doc(db, "blocked-slots", id));
   }, []);
 
+  const [config, setConfig] = useState<any>(null);
+
+  useEffect(() => {
+    const unsubConfig = onSnapshot(doc(db, "config", "main"), (snap) => {
+      if (snap.exists()) setConfig(snap.data());
+    });
+    return () => unsubConfig();
+  }, []);
+
+  const saveConfig = useCallback(async (cfg: any) => {
+    await setDoc(doc(db, "config", "main"), cfg);
+  }, []);
+
   return {
-    bookings, blocked, loading,
+    bookings, blocked, loading, config,
     addBooking, removeBooking,
     addBlockedSlot, removeBlockedSlot,
+    saveConfig,
   };
 }
 
@@ -494,7 +509,7 @@ function BookingModal({ booking, onClose, onCancel }) {
 }
 
 // ─── LANDING ──────────────────────────────────────────────────────────────────
-function Landing({ onBook, setSubPage }) {
+function Landing({ onBook, setSubPage, professionals = PROFESSIONALS, services = SERVICES }: any) {
   const [revIdx, setRevIdx] = useState(0);
   return (
     <div>
@@ -564,7 +579,7 @@ function Landing({ onBook, setSubPage }) {
   );
 }
 
-function EquipoPage({ onBack, onBook }) {
+function EquipoPage({ onBack, onBook, professionals = PROFESSIONALS }: any) {
   return (
     <div className="section page-enter" style={{ paddingTop: 96 }}>
       <button className="btn-back" onClick={onBack} style={{ marginBottom: 32 }}>← Volver</button>
@@ -639,7 +654,7 @@ function ContactoPage({ onBack }) {
 }
 
 // ─── BOOKING FLOW ─────────────────────────────────────────────────────────────
-function BookingFlow({ onBack }) {
+function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONALS }: any) {
   const [step, setStep] = useState(1);
   const [service, setService] = useState(null);
   const [prof, setProf] = useState(null);
@@ -895,7 +910,37 @@ function AdminPanel({ onLogout }) {
   const [blockEnd, setBlockEnd] = useState("");
   const [blockAllDay, setBlockAllDay] = useState(false);
 
-  const { bookings, blocked, loading, removeBooking, addBlockedSlot, removeBlockedSlot } = useFirebaseData();
+  const { bookings, blocked, loading, config, removeBooking, addBlockedSlot, removeBlockedSlot, saveConfig } = useFirebaseData();
+
+  // Config editable state (initialized from Firebase or defaults)
+  const DEFAULT_SERVICES = [
+    { id: 1, name: "Corte de cabello", price: 13, duration: 25 },
+    { id: 2, name: "Arreglo de barba", price: 8, duration: 15 },
+    { id: 3, name: "Corte + barba", price: 17, duration: 40 },
+    { id: 4, name: "Corte jubilado", price: 10, duration: 25 },
+    { id: 5, name: "Corte para niños", price: 13, duration: 25 },
+  ];
+  const DEFAULT_PROFESSIONALS = [
+    { name: "Jesús", image: "https://i.postimg.cc/fySSnKcg/42368ead-ac49-4030-b692-ba8bdc33f35e.jpg", specialty: "Cortes clásicos" },
+    { name: "Lancas", image: "https://i.postimg.cc/3RnFJn0P/f3c66a03-9069-489f-a39f-2baa5cb94e62.jpg", specialty: "Fade & degradado" },
+    { name: "Eddy", image: "https://i.postimg.cc/g2mjNd7P/36f5acf1-aee9-473a-9284-e6f8c9f18058.jpg", specialty: "Barba & estilo" },
+  ];
+  const [editServices, setEditServices] = useState(DEFAULT_SERVICES);
+  const [editProfs, setEditProfs] = useState(DEFAULT_PROFESSIONALS);
+  const [configSaved, setConfigSaved] = useState(false);
+
+  useEffect(() => {
+    if (config) {
+      if (config.services) setEditServices(config.services);
+      if (config.professionals) setEditProfs(config.professionals);
+    }
+  }, [config]);
+
+  const handleSaveConfig = async () => {
+    await saveConfig({ services: editServices, professionals: editProfs });
+    setConfigSaved(true);
+    setTimeout(() => setConfigSaved(false), 2500);
+  };
 
   const upcoming = useMemo(() => {
     const now = new Date();
@@ -1015,7 +1060,7 @@ function AdminPanel({ onLogout }) {
         </div>
 
         <div className="admin-tabs">
-          {[["bookings", "📅 Reservas"], ["avail", "🚫 Disponibilidad"], ["earnings", "💰 Ganancias"]].map(([id, label]) => (
+          {[["bookings", "📅 Reservas"], ["avail", "🚫 Disponibilidad"], ["earnings", "💰 Ganancias"], ["config", "⚙️ Configuración"]].map(([id, label]) => (
             <button key={id} className={`admin-tab${tab === id ? " active" : ""}`} onClick={() => setTab(id)}>{label}</button>
           ))}
         </div>
@@ -1101,6 +1146,60 @@ function AdminPanel({ onLogout }) {
         )}
       </div>
 
+        {tab === "config" && (
+          <div className="admin-card page-enter">
+            <h2 style={{ marginBottom: 24, fontSize: 22 }}>⚙️ Configuración</h2>
+
+            {/* SERVICES */}
+            <h3 style={{ fontSize: 16, marginBottom: 16, color: "var(--gold)" }}>Servicios</h3>
+            {editServices.map((svc, i) => (
+              <div key={i} style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 10, padding: 16, marginBottom: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 10, alignItems: "center" }}>
+                  <input className="form-input" value={svc.name} onChange={(e) => setEditServices(editServices.map((s, j) => j === i ? { ...s, name: e.target.value } : s))} placeholder="Nombre" style={{ marginBottom: 0 }} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: "var(--text3)", fontSize: 13 }}>€</span>
+                    <input type="number" className="form-input" value={svc.price} onChange={(e) => setEditServices(editServices.map((s, j) => j === i ? { ...s, price: Number(e.target.value) } : s))} style={{ marginBottom: 0, width: 70 }} />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: "var(--text3)", fontSize: 13 }}>min</span>
+                    <input type="number" className="form-input" value={svc.duration} onChange={(e) => setEditServices(editServices.map((s, j) => j === i ? { ...s, duration: Number(e.target.value) } : s))} style={{ marginBottom: 0, width: 70 }} />
+                  </div>
+                  <button onClick={() => setEditServices(editServices.filter((_, j) => j !== i))} style={{ background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.3)", color: "#e74c3c", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 14 }}>✕</button>
+                </div>
+              </div>
+            ))}
+            <button onClick={() => setEditServices([...editServices, { id: Date.now(), name: "Nuevo servicio", price: 10, duration: 20 }])}
+              style={{ background: "rgba(201,162,39,.08)", border: "1px dashed rgba(201,162,39,.3)", color: "var(--gold)", borderRadius: 10, padding: "10px 20px", cursor: "pointer", fontSize: 14, width: "100%", marginBottom: 32 }}>
+              + Añadir servicio
+            </button>
+
+            {/* PROFESSIONALS */}
+            <h3 style={{ fontSize: 16, marginBottom: 16, color: "var(--gold)" }}>Barberos</h3>
+            {editProfs.map((p, i) => (
+              <div key={i} style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 10, padding: 16, marginBottom: 12, display: "flex", gap: 16, alignItems: "center" }}>
+                <img src={p.image} alt={p.name} style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", border: "2px solid var(--border2)", flexShrink: 0 }} onError={(e: any) => e.target.src = "https://via.placeholder.com/56"} />
+                <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <input className="form-input" value={p.name} onChange={(e) => setEditProfs(editProfs.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} placeholder="Nombre" style={{ marginBottom: 0 }} />
+                  <input className="form-input" value={p.specialty} onChange={(e) => setEditProfs(editProfs.map((x, j) => j === i ? { ...x, specialty: e.target.value } : x))} placeholder="Especialidad" style={{ marginBottom: 0 }} />
+                  <input className="form-input" value={p.image} onChange={(e) => setEditProfs(editProfs.map((x, j) => j === i ? { ...x, image: e.target.value } : x))} placeholder="URL de foto" style={{ marginBottom: 0, gridColumn: "1 / -1", fontSize: 12 }} />
+                </div>
+                <button onClick={() => setEditProfs(editProfs.filter((_, j) => j !== i))} style={{ background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.3)", color: "#e74c3c", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 14, flexShrink: 0 }}>✕</button>
+              </div>
+            ))}
+            <button onClick={() => setEditProfs([...editProfs, { name: "Nuevo barbero", image: "", specialty: "" }])}
+              style={{ background: "rgba(201,162,39,.08)", border: "1px dashed rgba(201,162,39,.3)", color: "var(--gold)", borderRadius: 10, padding: "10px 20px", cursor: "pointer", fontSize: 14, width: "100%", marginBottom: 32 }}>
+              + Añadir barbero
+            </button>
+
+            {/* SAVE BUTTON */}
+            <button onClick={handleSaveConfig}
+              style={{ width: "100%", padding: 16, background: configSaved ? "rgba(39,174,96,.2)" : "linear-gradient(135deg,var(--gold),var(--gold-dim))", border: configSaved ? "1px solid rgba(39,174,96,.4)" : "none", color: configSaved ? "rgba(39,174,96,.9)" : "#000", borderRadius: 12, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: 16, fontWeight: 700, transition: "all .3s" }}>
+              {configSaved ? "✓ Guardado correctamente" : "Guardar cambios"}
+            </button>
+            <p style={{ color: "var(--text3)", fontSize: 12, textAlign: "center", marginTop: 12 }}>Los cambios se aplican en tiempo real en la web.</p>
+          </div>
+        )}
+
       {selBooking && <BookingModal booking={selBooking} onClose={() => setSelBooking(null)} onCancel={deleteBooking} />}
 
       {showBlockModal && (
@@ -1173,6 +1272,17 @@ export default function App() {
   const [subPage, setSubPage] = useState("home");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [adminAuth, setAdminAuth] = useState(false);
+  const [appConfig, setAppConfig] = useState<any>(null);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "config", "main"), (snap) => {
+      if (snap.exists()) setAppConfig(snap.data());
+    });
+    return () => unsub();
+  }, []);
+
+  const liveServices = appConfig?.services || SERVICES;
+  const liveProfessionals = appConfig?.professionals || PROFESSIONALS;
 
   const goTo = (p) => { setPage(p); setMobileOpen(false); window.scrollTo(0, 0); };
 
@@ -1208,8 +1318,8 @@ export default function App() {
 
       {page === "home" && (
         <>
-          {subPage === "home" && <Landing onBook={() => goTo("booking")} setSubPage={setSubPage} />}
-          {subPage === "equipo" && <EquipoPage onBack={() => setSubPage("home")} onBook={() => goTo("booking")} />}
+          {subPage === "home" && <Landing onBook={() => goTo("booking")} setSubPage={setSubPage} professionals={liveProfessionals} services={liveServices} />}
+          {subPage === "equipo" && <EquipoPage onBack={() => setSubPage("home")} onBook={() => goTo("booking")} professionals={liveProfessionals} />}
           {subPage === "contacto" && <ContactoPage onBack={() => setSubPage("home")} />}
           <footer className="footer">
             <div className="footer-logo">Tu barbería</div>
@@ -1217,7 +1327,7 @@ export default function App() {
           </footer>
         </>
       )}
-      {page === "booking" && <div style={{ paddingTop: 64 }}><BookingFlow onBack={() => goTo("home")} /></div>}
+      {page === "booking" && <div style={{ paddingTop: 64 }}><BookingFlow onBack={() => goTo("home")} services={liveServices} professionals={liveProfessionals} /></div>}
       {page === "admin" && (adminAuth ? <AdminPanel onLogout={() => { setAdminAuth(false); goTo("home"); }} /> : <AdminLogin onSuccess={() => setAdminAuth(true)} />)}
     </>
   );
