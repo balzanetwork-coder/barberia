@@ -99,14 +99,17 @@ export default function AdminPage() {
     }
   }, []);
 
-  const handleEnableNotifications = async () => {
+const handleEnableNotifications = async () => {
     setNotifStatus("loading");
     try {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") { setNotifStatus("denied"); return; }
       const sub = await subscribeToPush();
-      if (sub) setNotifStatus("active");
-      else setNotifStatus("denied");
+      if (sub) {
+        // Guardar suscripción en Firebase
+        await setDoc(doc(db, "config", "push"), { subscription: JSON.stringify(sub) });
+        setNotifStatus("active");
+      } else setNotifStatus("denied");
     } catch (e) {
       console.error(e);
       setNotifStatus("denied");

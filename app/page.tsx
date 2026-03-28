@@ -782,13 +782,14 @@ function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONAL
       }
 
       // Notificación push al admin
-      if (pushSubscription) {
-        await sendPushNotification(
-          pushSubscription,
-          "💈 Nueva reserva",
-          `${name} · ${service.name} · ${date} a las ${time}`
-        );
-      }
+      await fetch("/api/send-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "💈 Nueva reserva",
+          body: `${name} · ${service.name} · ${date} a las ${time}`,
+        }),
+      });
 
       setShowSuccess(true);
       setTimeout(() => { setShowSuccess(false); onBack(); }, 3000);
