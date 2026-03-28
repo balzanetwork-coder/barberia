@@ -15,11 +15,12 @@ import {
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SERVICES = [
-  { id: 1, name: "Corte de cabello", price: 13, duration: 25 },
-  { id: 2, name: "Arreglo de barba", price: 8, duration: 15 },
-  { id: 3, name: "Corte + barba", price: 17, duration: 40 },
-  { id: 4, name: "Corte jubilado", price: 10, duration: 25 },
-  { id: 5, name: "Corte para niños", price: 13, duration: 25 },
+  { id: 1, name: "Degradado", price: 13, duration: 40 },
+  { id: 2, name: "Degradado + Barba", price: 17, duration: 60 },
+  { id: 3, name: "Arreglo de barba", price: 7, duration: 20 },
+  { id: 4, name: "Corte jubilado", price: 10, duration: 30 },
+  { id: 5, name: "Corte para niños", price: 13, duration: 40 },
+  { id: 6, name: "Cejas", price: 4, duration: 5 },
 ];
 
 const PROFESSIONALS = [
@@ -995,11 +996,12 @@ function AdminPanel({ onLogout, pushSubscription, setPushSubscription }) {
   };
 
   const DEFAULT_SERVICES = [
-    { id: 1, name: "Corte de cabello", price: 13, duration: 25 },
-    { id: 2, name: "Arreglo de barba", price: 8, duration: 15 },
-    { id: 3, name: "Corte + barba", price: 17, duration: 40 },
-    { id: 4, name: "Corte jubilado", price: 10, duration: 25 },
-    { id: 5, name: "Corte para niños", price: 13, duration: 25 },
+    { id: 1, name: "Degradado", price: 13, duration: 40 },
+    { id: 2, name: "Degradado + Barba", price: 17, duration: 60 },
+    { id: 3, name: "Arreglo de barba", price: 7, duration: 20 },
+    { id: 4, name: "Corte jubilado", price: 10, duration: 30 },
+    { id: 5, name: "Corte para niños", price: 13, duration: 40 },
+  { id: 6, name: "Cejas", price: 4, duration: 5 },
   ];
   const DEFAULT_PROFESSIONALS = [
     { name: "Jesús", image: "https://i.postimg.cc/fySSnKcg/42368ead-ac49-4030-b692-ba8bdc33f35e.jpg", specialty: "Cortes clásicos" },
