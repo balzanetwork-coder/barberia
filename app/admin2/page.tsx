@@ -6,6 +6,7 @@ import { collection, addDoc, deleteDoc, doc, setDoc, onSnapshot, query, orderBy 
 
 const PROFESSIONALS = [{ name: "Jesús" }, { name: "Lancas" }, { name: "Eddy" }];
 const ADMIN_PASSWORD = "admin123";
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
 
 function generateSlots() {
   const s = [];
@@ -15,6 +16,27 @@ function generateSlots() {
   return s;
 }
 const ALL_SLOTS = generateSlots();
+
+// ─── PUSH NOTIFICATIONS ───────────────────────────────────────────────────────
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function subscribeToPush() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
+  const reg = await navigator.serviceWorker.register("/sw.js");
+  const existing = await reg.pushManager.getSubscription();
+  if (existing) return existing;
+  return await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+  });
+}
 
 function useFirebaseData() {
   const [bookings, setBookings] = useState<any[]>([]);
@@ -63,8 +85,33 @@ export default function AdminPage() {
   const [blockEnd, setBlockEnd] = useState("");
   const [blockAllDay, setBlockAllDay] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [notifStatus, setNotifStatus] = useState<"idle"|"loading"|"active"|"denied">("idle");
 
   const { bookings, blocked, loading, config, removeBooking, addBlockedSlot, removeBlockedSlot, saveConfig } = useFirebaseData();
+
+  // Recuperar suscripción existente al cargar
+  useEffect(() => {
+    if ("serviceWorker" in navigator && "PushManager" in window) {
+      navigator.serviceWorker.register("/sw.js").then(async (reg) => {
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) setNotifStatus("active");
+      });
+    }
+  }, []);
+
+  const handleEnableNotifications = async () => {
+    setNotifStatus("loading");
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") { setNotifStatus("denied"); return; }
+      const sub = await subscribeToPush();
+      if (sub) setNotifStatus("active");
+      else setNotifStatus("denied");
+    } catch (e) {
+      console.error(e);
+      setNotifStatus("denied");
+    }
+  };
 
   const DEFAULT_SERVICES = [
     { id: 1, name: "Corte de cabello", price: 13, duration: 25 },
@@ -83,7 +130,6 @@ export default function AdminPage() {
   const [configSaved, setConfigSaved] = useState(false);
   const DAYS = ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado"];
   const HOURS = Array.from({length:12},(_, i)=>`${String(i+10).padStart(2,"0")}:00`);
-  const makeDefaultSchedule = () => Object.fromEntries(["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado"].map(d=>[d,{on:true,start:"10:00",end:"21:00"}]));
   const [schedules, setSchedules] = useState<any>({});
 
   useEffect(() => {
@@ -186,7 +232,8 @@ export default function AdminPage() {
     .btn{background:linear-gradient(135deg,var(--gold),var(--gold-dim));color:#000;font-weight:700;font-size:15px;padding:14px 32px;border:none;border-radius:10px;cursor:pointer;font-family:'DM Sans',sans-serif;width:100%}
     .admin{padding:32px 24px 60px;min-height:100vh}
     .inner{max-width:1100px;margin:0 auto}
-    .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}
+    .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+    .hdr-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
     .tabs{display:flex;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:24px}
     .tab{flex:1;padding:10px;border-radius:8px;border:none;background:transparent;color:var(--text3);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;transition:all .2s}
     .tab.on{background:var(--bg3);color:var(--gold);border:1px solid rgba(201,162,39,.2)}
@@ -197,6 +244,9 @@ export default function AdminPage() {
     .empty{text-align:center;padding:60px;color:var(--text3)}
     .logout{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:8px 16px;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:14px}
     .logout:hover{border-color:var(--red);color:#e74c3c}
+    .btn-notif{display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;border:1px solid rgba(201,162,39,.3);background:rgba(201,162,39,.08);color:var(--gold);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;transition:all .2s}
+    .btn-notif:hover{background:rgba(201,162,39,.15)}
+    .btn-notif.active{background:rgba(39,174,96,.1);border-color:rgba(39,174,96,.3);color:rgba(39,174,96,.9)}
     .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
     .sc{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:24px;text-align:center}
     .sc-n{font-family:'Playfair Display',serif;font-size:36px;font-weight:700;margin-bottom:4px}
@@ -342,7 +392,19 @@ export default function AdminPage() {
         <div className="inner">
           <div className="hdr">
             <h1 style={{fontSize:32}}>Panel Admin</h1>
-            <button className="logout" onClick={()=>setAuth(false)}>↩ Salir</button>
+            <div className="hdr-right">
+              <button
+                className={`btn-notif${notifStatus === "active" ? " active" : ""}`}
+                onClick={notifStatus !== "active" ? handleEnableNotifications : undefined}
+                disabled={notifStatus === "loading" || notifStatus === "denied"}
+              >
+                {notifStatus === "active" ? "🔔 Notificaciones activas" :
+                 notifStatus === "loading" ? "Activando…" :
+                 notifStatus === "denied" ? "🔕 Bloqueadas" :
+                 "🔔 Activar notificaciones"}
+              </button>
+              <button className="logout" onClick={()=>setAuth(false)}>↩ Salir</button>
+            </div>
           </div>
 
           <div className="tabs">
@@ -450,8 +512,7 @@ export default function AdminPage() {
                 style={{background:"rgba(201,162,39,.08)",border:"1px dashed rgba(201,162,39,.3)",color:"#c9a227",borderRadius:10,padding:"10px 20px",cursor:"pointer",fontSize:14,width:"100%",marginBottom:32}}>
                 + Añadir barbero
               </button>
-
-                            <button onClick={handleSaveConfig}
+              <button onClick={handleSaveConfig}
                 style={{width:"100%",padding:16,background:configSaved?"rgba(39,174,96,.2)":"linear-gradient(135deg,#c9a227,#8a6d18)",border:configSaved?"1px solid rgba(39,174,96,.4)":"none",color:configSaved?"rgba(39,174,96,.9)":"#000",borderRadius:12,cursor:"pointer",fontFamily:"sans-serif",fontSize:16,fontWeight:700}}>
                 {configSaved?"Guardado correctamente":"Guardar cambios"}
               </button>
@@ -462,7 +523,7 @@ export default function AdminPage() {
           {tab==="horarios"&&(
             <div className="panel fe">
               <h2 style={{marginBottom:8,fontSize:22}}>🕐 Horarios</h2>
-              <p style={{color:"var(--text2)",fontSize:14,marginBottom:24}}>Define qué días y horas trabaja cada barbero. Los clientes solo verán huecos dentro de este horario.</p>
+              <p style={{color:"var(--text2)",fontSize:14,marginBottom:24}}>Define qué días y horas trabaja cada barbero.</p>
               {editProfs.map((prof)=>{
                 const profSched = schedules[prof.name] || {};
                 return (
@@ -513,40 +574,29 @@ export default function AdminPage() {
           )}
 
           {tab==="earnings"&&(()=>{
-            // ── Stats calculations ──
             const allBks = bookings;
             const statPeriod = earningsFilter;
             const filtered = statPeriod==="ALL" ? allBks : allBks.filter(b=>b.professional===statPeriod);
             const totalRev = filtered.reduce((s,b)=>s+b.service.price,0);
             const totalCost = filtered.length * costPerSvc;
-
-            // Ingresos por barbero
             const byBarber = PROFESSIONALS.map(p=>({
               name:p.name,
               count:allBks.filter(b=>b.professional===p.name).length,
               rev:allBks.filter(b=>b.professional===p.name).reduce((s,b)=>s+b.service.price,0)
             }));
             const maxBarberRev = Math.max(...byBarber.map(b=>b.rev),1);
-
-            // Servicio más popular
             const svcCount:{[k:string]:number} = {};
             allBks.forEach(b=>{ svcCount[b.service.name]=(svcCount[b.service.name]||0)+1; });
             const svcSorted = Object.entries(svcCount).sort((a,b)=>b[1]-a[1]);
             const maxSvc = svcSorted[0]?.[1]||1;
-
-            // Día con más reservas
             const dayNames=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
             const dayCount=Array(7).fill(0);
             allBks.forEach(b=>{ const d=new Date(b.date.replace(/-/g,"/")).getDay(); dayCount[d]++; });
             const maxDay=Math.max(...dayCount,1);
-
-            // Hora con más reservas
             const hourCount:{[k:string]:number}={};
             allBks.forEach(b=>{ const h=b.time.split(":")[0]+":00"; hourCount[h]=(hourCount[h]||0)+1; });
             const hourSorted=Object.entries(hourCount).sort((a,b)=>b[1]-a[1]);
             const maxHour=hourSorted[0]?.[1]||1;
-
-            // Evolución semanal (últimas 8 semanas)
             const weeks:{[k:string]:number}={};
             const now=new Date();
             for(let i=7;i>=0;i--){
@@ -566,19 +616,15 @@ export default function AdminPage() {
             });
             const weekEntries=Object.entries(weeks);
             const maxWeek=Math.max(...weekEntries.map(e=>e[1]),1);
-
             const Bar=({val,max,color="#c9a227",height=24}:{val:number,max:number,color?:string,height?:number})=>(
               <div style={{background:"#0d0d0d",borderRadius:4,overflow:"hidden",height,flexGrow:1}}>
                 <div style={{height:"100%",width:`${Math.max(4,(val/max)*100)}%`,background:color,borderRadius:4,transition:"width .4s ease"}}/>
               </div>
             );
-
             return (
             <div className="panel fe">
               <h2 style={{marginBottom:4,fontSize:22}}>💰 Estadísticas</h2>
               <p style={{color:"#a09888",fontSize:14,marginBottom:24}}>Basado en {allBks.length} reservas totales</p>
-
-              {/* Filtro + coste */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:24}}>
                 <div>
                   <label className="lbl">Filtrar barbero</label>
@@ -592,15 +638,11 @@ export default function AdminPage() {
                   <input type="number" value={costPerSvc} onChange={(e)=>setCostPerSvc(Number(e.target.value))} min={0} style={{width:"100%",background:"var(--bg3)",border:"1px solid #333",borderRadius:10,padding:"13px 16px",color:"#f0ece3",fontFamily:"sans-serif",fontSize:15,outline:"none"}}/>
                 </div>
               </div>
-
-              {/* KPIs */}
               <div className="stats" style={{marginBottom:28}}>
                 <div className="sc"><div className="sc-n" style={{color:"#5dade2"}}>€{totalRev.toFixed(0)}</div><div className="sc-l">Ingresos</div></div>
                 <div className="sc"><div className="sc-n" style={{color:"#e74c3c"}}>€{totalCost.toFixed(0)}</div><div className="sc-l">Costes</div></div>
                 <div className="sc"><div className="sc-n" style={{color:"#27ae60"}}>€{(totalRev-totalCost).toFixed(0)}</div><div className="sc-l">Beneficio</div></div>
               </div>
-
-              {/* Evolución semanal */}
               <div style={{background:"var(--bg3)",border:"1px solid #2a2a2a",borderRadius:12,padding:20,marginBottom:20}}>
                 <h3 style={{fontSize:15,marginBottom:16,color:"#c9a227"}}>📈 Evolución semanal (últimas 8 semanas)</h3>
                 <div style={{display:"grid",gap:8}}>
@@ -613,8 +655,6 @@ export default function AdminPage() {
                   ))}
                 </div>
               </div>
-
-              {/* Ingresos por barbero */}
               <div style={{background:"var(--bg3)",border:"1px solid #2a2a2a",borderRadius:12,padding:20,marginBottom:20}}>
                 <h3 style={{fontSize:15,marginBottom:16,color:"#c9a227"}}>💈 Ingresos por barbero</h3>
                 <div style={{display:"grid",gap:12}}>
@@ -629,8 +669,6 @@ export default function AdminPage() {
                   ))}
                 </div>
               </div>
-
-              {/* Servicio más popular */}
               <div style={{background:"var(--bg3)",border:"1px solid #2a2a2a",borderRadius:12,padding:20,marginBottom:20}}>
                 <h3 style={{fontSize:15,marginBottom:16,color:"#c9a227"}}>⭐ Servicios más populares</h3>
                 <div style={{display:"grid",gap:10}}>
@@ -645,8 +683,6 @@ export default function AdminPage() {
                   ))}
                 </div>
               </div>
-
-              {/* Día con más reservas */}
               <div style={{background:"var(--bg3)",border:"1px solid #2a2a2a",borderRadius:12,padding:20,marginBottom:20}}>
                 <h3 style={{fontSize:15,marginBottom:16,color:"#c9a227"}}>📅 Reservas por día de la semana</h3>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8,alignItems:"end",height:120}}>
@@ -659,8 +695,6 @@ export default function AdminPage() {
                   ))}
                 </div>
               </div>
-
-              {/* Hora con más reservas */}
               <div style={{background:"var(--bg3)",border:"1px solid #2a2a2a",borderRadius:12,padding:20}}>
                 <h3 style={{fontSize:15,marginBottom:16,color:"#c9a227"}}>🕐 Horas más demandadas</h3>
                 <div style={{display:"grid",gap:8}}>
