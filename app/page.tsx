@@ -36,6 +36,43 @@ const REVIEWS = [
 ];
 
 const ADMIN_PASSWORD = "admin123";
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
+
+// ─── PUSH NOTIFICATIONS ───────────────────────────────────────────────────────
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function registerSW() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
+  const reg = await navigator.serviceWorker.register("/sw.js");
+  return reg;
+}
+
+async function subscribeToPush() {
+  const reg = await registerSW();
+  if (!reg) return null;
+  const existing = await reg.pushManager.getSubscription();
+  if (existing) return existing;
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+  });
+  return sub;
+}
+
+async function sendPushNotification(subscription: any, title: string, body: string) {
+  await fetch("/api/send-notification", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ subscription, title, body }),
+  });
+}
 
 // ─── TIME SLOTS ───────────────────────────────────────────────────────────────
 function generateSlots() {
@@ -47,14 +84,13 @@ function generateSlots() {
 }
 const ALL_SLOTS = generateSlots();
 
-// ─── FIREBASE HOOK (tiempo real con onSnapshot) ───────────────────────────────
+// ─── FIREBASE HOOK ────────────────────────────────────────────────────────────
 function useFirebaseData() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [blocked, setBlocked] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Escucha reservas en tiempo real
     const unsubBookings = onSnapshot(
       query(collection(db, "bookings"), orderBy("createdAt", "desc")),
       (snap) => {
@@ -63,16 +99,11 @@ function useFirebaseData() {
       },
       (err) => { console.error("bookings error:", err); setLoading(false); }
     );
-
-    // Escucha bloqueos en tiempo real
     const unsubBlocked = onSnapshot(
       collection(db, "blocked-slots"),
-      (snap) => {
-        setBlocked(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      },
+      (snap) => setBlocked(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
       (err) => console.error("blocked error:", err)
     );
-
     return () => { unsubBookings(); unsubBlocked(); };
   }, []);
 
@@ -394,6 +425,10 @@ const css = `
   .btn-logout { display: flex; align-items: center; gap: 8px; background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 14px; transition: all .2s; }
   .btn-logout:hover { border-color: var(--red); color: #e74c3c; }
 
+  .btn-notif { display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 10px; border: 1px solid rgba(201,162,39,.3); background: rgba(201,162,39,.08); color: var(--gold); cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; transition: all .2s; }
+  .btn-notif:hover { background: rgba(201,162,39,.15); }
+  .btn-notif.active { background: rgba(39,174,96,.1); border-color: rgba(39,174,96,.3); color: rgba(39,174,96,.9); }
+
   @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
@@ -656,7 +691,7 @@ function ContactoPage({ onBack }) {
 }
 
 // ─── BOOKING FLOW ─────────────────────────────────────────────────────────────
-function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONALS, schedules = {} }: any) {
+function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONALS, schedules = {}, pushSubscription }: any) {
   const [step, setStep] = useState(1);
   const [service, setService] = useState(null);
   const [prof, setProf] = useState(null);
@@ -693,7 +728,6 @@ function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONAL
 
   const availSlots = useMemo(() => {
     let slots = getAvailableSlots(date, prof?.name, service, bookings, blocked);
-    // Filter by barber schedule
     if (date && prof?.name && schedules[prof.name]) {
       const dayNames = ["Domingo","Lunes","Martes","Miercoles","Jueves","Viernes","Sabado"];
       const dow = dayNames[new Date(date.replace(/-/g,"/")).getDay()];
@@ -712,7 +746,6 @@ function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONAL
         });
       }
     }
-    // Filter past slots for today
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
     if (date === todayStr) {
@@ -724,6 +757,7 @@ function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONAL
     }
     return slots;
   }, [date, prof, service, bookings, blocked, schedules]);
+
   const slotsByPeriod = useMemo(() => ({
     Mañana: availSlots.filter((t) => parseInt(t) < 13),
     Mediodía: availSlots.filter((t) => parseInt(t) >= 13 && parseInt(t) < 16),
@@ -736,7 +770,8 @@ function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONAL
     try {
       const bookingData = { service, professional: prof.name, date, time, clientName: name, contactType, contactValue: contact };
       const id = await addBooking(bookingData);
-      // Enviar email de confirmación
+
+      // Email de confirmación
       if (contactType === "email") {
         const cancelUrl = `${window.location.origin}/cancelar?id=${id}`;
         await fetch("/api/send-email", {
@@ -745,6 +780,16 @@ function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONAL
           body: JSON.stringify({ type: "confirmation", booking: { ...bookingData, id }, cancelUrl }),
         });
       }
+
+      // Notificación push al admin
+      if (pushSubscription) {
+        await sendPushNotification(
+          pushSubscription,
+          "💈 Nueva reserva",
+          `${name} · ${service.name} · ${date} a las ${time}`
+        );
+      }
+
       setShowSuccess(true);
       setTimeout(() => { setShowSuccess(false); onBack(); }, 3000);
     } catch (e) {
@@ -917,7 +962,7 @@ function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONAL
 }
 
 // ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
-function AdminPanel({ onLogout }) {
+function AdminPanel({ onLogout, pushSubscription, setPushSubscription }) {
   const [tab, setTab] = useState("bookings");
   const [selBooking, setSelBooking] = useState(null);
   const [profFilter, setProfFilter] = useState("");
@@ -930,10 +975,24 @@ function AdminPanel({ onLogout }) {
   const [blockStart, setBlockStart] = useState("");
   const [blockEnd, setBlockEnd] = useState("");
   const [blockAllDay, setBlockAllDay] = useState(false);
+  const [notifStatus, setNotifStatus] = useState<"idle"|"loading"|"active"|"denied">(pushSubscription ? "active" : "idle");
 
   const { bookings, blocked, loading, config, removeBooking, addBlockedSlot, removeBlockedSlot, saveConfig } = useFirebaseData();
 
-  // Config editable state (initialized from Firebase or defaults)
+  const handleEnableNotifications = async () => {
+    setNotifStatus("loading");
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") { setNotifStatus("denied"); return; }
+      const sub = await subscribeToPush();
+      if (sub) { setPushSubscription(sub); setNotifStatus("active"); }
+      else setNotifStatus("denied");
+    } catch (e) {
+      console.error(e);
+      setNotifStatus("denied");
+    }
+  };
+
   const DEFAULT_SERVICES = [
     { id: 1, name: "Corte de cabello", price: 13, duration: 25 },
     { id: 2, name: "Arreglo de barba", price: 8, duration: 15 },
@@ -1071,10 +1130,21 @@ function AdminPanel({ onLogout }) {
       <div className="admin-inner">
         <div className="admin-header">
           <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: 32 }}>Panel Admin</h1>
-          <button className="btn-logout" onClick={onLogout}>↩ Salir</button>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <button
+              className={`btn-notif${notifStatus === "active" ? " active" : ""}`}
+              onClick={notifStatus !== "active" ? handleEnableNotifications : undefined}
+              disabled={notifStatus === "loading" || notifStatus === "denied"}
+            >
+              {notifStatus === "active" ? "🔔 Notificaciones activas" :
+               notifStatus === "loading" ? "Activando…" :
+               notifStatus === "denied" ? "🔕 Bloqueadas" :
+               "🔔 Activar notificaciones"}
+            </button>
+            <button className="btn-logout" onClick={onLogout}>↩ Salir</button>
+          </div>
         </div>
 
-        {/* LIVE BADGE */}
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(39,174,96,.08)", border: "1px solid rgba(39,174,96,.2)", borderRadius: 8, padding: "6px 14px", marginBottom: 20, fontSize: 13, color: "rgba(39,174,96,.9)" }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(39,174,96,.9)", display: "inline-block", animation: "pulse 2s ease infinite" }} />
           Sincronizado con Firebase · {bookings.length} reservas en total
@@ -1169,8 +1239,6 @@ function AdminPanel({ onLogout }) {
         {tab === "config" && (
           <div className="admin-card page-enter">
             <h2 style={{ marginBottom: 24, fontSize: 22 }}>⚙️ Configuración</h2>
-
-            {/* SERVICES */}
             <h3 style={{ fontSize: 16, marginBottom: 16, color: "var(--gold)" }}>Servicios</h3>
             {editServices.map((svc, i) => (
               <div key={i} style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 10, padding: 16, marginBottom: 12 }}>
@@ -1192,8 +1260,6 @@ function AdminPanel({ onLogout }) {
               style={{ background: "rgba(201,162,39,.08)", border: "1px dashed rgba(201,162,39,.3)", color: "var(--gold)", borderRadius: 10, padding: "10px 20px", cursor: "pointer", fontSize: 14, width: "100%", marginBottom: 32 }}>
               + Añadir servicio
             </button>
-
-            {/* PROFESSIONALS */}
             <h3 style={{ fontSize: 16, marginBottom: 16, color: "var(--gold)" }}>Barberos</h3>
             {editProfs.map((p, i) => (
               <div key={i} style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 10, padding: 16, marginBottom: 12, display: "flex", gap: 16, alignItems: "center" }}>
@@ -1210,8 +1276,6 @@ function AdminPanel({ onLogout }) {
               style={{ background: "rgba(201,162,39,.08)", border: "1px dashed rgba(201,162,39,.3)", color: "var(--gold)", borderRadius: 10, padding: "10px 20px", cursor: "pointer", fontSize: 14, width: "100%", marginBottom: 32 }}>
               + Añadir barbero
             </button>
-
-            {/* SAVE BUTTON */}
             <button onClick={handleSaveConfig}
               style={{ width: "100%", padding: 16, background: configSaved ? "rgba(39,174,96,.2)" : "linear-gradient(135deg,var(--gold),var(--gold-dim))", border: configSaved ? "1px solid rgba(39,174,96,.4)" : "none", color: configSaved ? "rgba(39,174,96,.9)" : "#000", borderRadius: 12, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: 16, fontWeight: 700, transition: "all .3s" }}>
               {configSaved ? "✓ Guardado correctamente" : "Guardar cambios"}
@@ -1219,7 +1283,6 @@ function AdminPanel({ onLogout }) {
             <p style={{ color: "var(--text3)", fontSize: 12, textAlign: "center", marginTop: 12 }}>Los cambios se aplican en tiempo real en la web.</p>
           </div>
         )}
-
       </div>
 
       {selBooking && <BookingModal booking={selBooking} onClose={() => setSelBooking(null)} onCancel={deleteBooking} />}
@@ -1295,12 +1358,23 @@ export default function App() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [adminAuth, setAdminAuth] = useState(false);
   const [appConfig, setAppConfig] = useState<any>(null);
+  const [pushSubscription, setPushSubscription] = useState<any>(null);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "config", "main"), (snap) => {
       if (snap.exists()) setAppConfig(snap.data());
     });
     return () => unsub();
+  }, []);
+
+  // Recuperar suscripción push existente al cargar
+  useEffect(() => {
+    if ("serviceWorker" in navigator && "PushManager" in window) {
+      navigator.serviceWorker.register("/sw.js").then(async (reg) => {
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) setPushSubscription(sub);
+      });
+    }
   }, []);
 
   const liveServices = appConfig?.services || SERVICES;
@@ -1349,8 +1423,22 @@ export default function App() {
           </footer>
         </>
       )}
-      {page === "booking" && <div style={{ paddingTop: 64 }}><BookingFlow onBack={() => goTo("home")} services={liveServices} professionals={liveProfessionals} schedules={appConfig?.schedules||{}} /></div>}
-      {page === "admin" && (adminAuth ? <AdminPanel onLogout={() => { setAdminAuth(false); goTo("home"); }} /> : <AdminLogin onSuccess={() => setAdminAuth(true)} />)}
+      {page === "booking" && (
+        <div style={{ paddingTop: 64 }}>
+          <BookingFlow
+            onBack={() => goTo("home")}
+            services={liveServices}
+            professionals={liveProfessionals}
+            schedules={appConfig?.schedules || {}}
+            pushSubscription={pushSubscription}
+          />
+        </div>
+      )}
+      {page === "admin" && (
+        adminAuth
+          ? <AdminPanel onLogout={() => { setAdminAuth(false); goTo("home"); }} pushSubscription={pushSubscription} setPushSubscription={setPushSubscription} />
+          : <AdminLogin onSuccess={() => setAdminAuth(true)} />
+      )}
     </>
   );
 }
