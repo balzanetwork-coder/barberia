@@ -787,7 +787,7 @@ function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONAL
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: "💈 Nueva reserva",
-          body: `${name} · ${service.name} · ${new Date(date.replace(/-/g,"/")).toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})} a las ${time}`,
+          body: `${name} · ${service.name} · ${date} a las ${time}`,
         }),
       });
 
@@ -1034,8 +1034,8 @@ function AdminPanel({ onLogout, pushSubscription, setPushSubscription }) {
   const deleteBooking = async (id) => {
     const bk = bookings.find((b) => b.id === id);
     if (bk?.contactType === "email" && bk.contactValue) {
-      const subj = encodeURIComponent("Cancelación de cita - Tu barbería");
-      const body = encodeURIComponent(`Hola ${bk.clientName},\nTu cita del ${bk.date} a las ${bk.time} ha sido cancelada.\n\nEl equipo de Tu barbería`);
+      const subj = encodeURIComponent("Cancelación de cita - Nicko's Barber");
+      const body = encodeURIComponent(`Hola ${bk.clientName},\nTu cita del ${bk.date} a las ${bk.time} ha sido cancelada.\n\nEl equipo de Nicko's Barber`);
       window.open(`mailto:${bk.contactValue}?subject=${subj}&body=${body}`, "_blank");
     }
     await removeBooking(id);
@@ -1392,7 +1392,7 @@ export default function App() {
           <div className="header-inner">
             <div className="logo" onClick={() => { goTo("home"); setSubPage("home"); }}>
               <div className="logo-icon">💈</div>
-              <span className="logo-text">Tu barbería</span>
+              <span className="logo-text">Nicko's Barber</span>
             </div>
             <nav className="nav">
               <a className={subPage === "home" ? "active" : ""} onClick={() => { setSubPage("home"); goTo("home"); }} style={{ cursor: "pointer" }}>Inicio</a>
@@ -1419,7 +1419,7 @@ export default function App() {
           {subPage === "equipo" && <EquipoPage onBack={() => setSubPage("home")} onBook={() => goTo("booking")} professionals={liveProfessionals} />}
           {subPage === "contacto" && <ContactoPage onBack={() => setSubPage("home")} />}
           <footer className="footer">
-            <div className="footer-logo">Tu barbería</div>
+            <div className="footer-logo">Nicko's Barber</div>
             <p>© {new Date().getFullYear()} Todos los derechos reservados</p>
           </footer>
         </>

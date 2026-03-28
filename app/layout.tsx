@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tu Barbería",
-  description: "Reserva tu cita online en Tu Barbería",
+  title: "Nicko's Barber",
+  description: "Reserva tu cita online en Nicko's Barber",
 };
 
 export default function RootLayout({

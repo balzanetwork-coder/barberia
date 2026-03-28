@@ -50,13 +50,11 @@ export default function CancelarPage() {
     if (!booking) return;
     setCancelling(true);
     try {
-      // Send cancellation email
       await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "cancellation", booking }),
       });
-      // Delete from Firebase
       await deleteDoc(doc(db, "bookings", booking.id));
       setStatus("cancelled");
     } catch {
@@ -138,7 +136,7 @@ export default function CancelarPage() {
             <>
               <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
               <h2 style={{ marginBottom: 8 }}>Cita cancelada</h2>
-              <p style={{ color: "var(--text2)", marginBottom: 28 }}>Tu cita ha sido cancelada correctamente. ¡Esperamos verte pronto!</p>
+              <p style={{ color: "var(--text2)", marginBottom: 28 }}>Tu cita ha sido cancelada correctamente. ¡Esperamos verte pronto en Nicko's Barber!</p>
               <a href="/" className="btn-home">Reservar otra cita</a>
             </>
           )}
