@@ -1,14 +1,13 @@
-// firebase.js — ponlo en C:\Users\xabit\barberia\firebase.js
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCeoWlbTC0UKlbm-C2x7B4i55tzkyekG_g",
-  authDomain: "barberia-claude.firebaseapp.com",
-  projectId: "barberia-claude",
-  storageBucket: "barberia-claude.firebasestorage.app",
-  messagingSenderId: "696874253985",
-  appId: "1:696874253985:web:3a87b66c863c605c4bfae0",
+  apiKey: "AIzaSyBraImm_FZqo0skGlG2iFdzBd7W-ImvttI",
+  authDomain: "barberia-claude-a290e.firebaseapp.com",
+  projectId: "barberia-claude-a290e",
+  storageBucket: "barberia-claude-a290e.firebasestorage.app",
+  messagingSenderId: "336094934285",
+  appId: "1:336094934285:web:b4e7c8cf9639a6a008ec44"
 };
 
 const app = initializeApp(firebaseConfig);
