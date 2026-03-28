@@ -787,7 +787,7 @@ function BookingFlow({ onBack, services = SERVICES, professionals = PROFESSIONAL
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: "💈 Nueva reserva",
-          body: `${name} · ${service.name} · ${date} a las ${time}`,
+          body: `${name} · ${service.name} · ${new Date(date.replace(/-/g,"/")).toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})} a las ${time}`,
         }),
       });
 
