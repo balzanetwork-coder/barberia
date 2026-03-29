@@ -132,17 +132,24 @@ export default function AdminPage() {
   const DAYS = ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado"];
   const HOURS = Array.from({length:12},(_, i)=>`${String(i+10).padStart(2,"0")}:00`);
   const [schedules, setSchedules] = useState<any>({});
+  const [contactInfo, setContactInfo] = useState({
+    address: "Calle del Barbero, 45\n28004 Madrid, España",
+    phone: "+34 910 987 654",
+    email: "hola@nickosbarber.es",
+    hours: "Lun–Sáb: 10:00 – 21:00\nDomingo: Cerrado",
+  });
 
   useEffect(() => {
     if (config) {
       if (config.services) setEditServices(config.services);
       if (config.professionals) setEditProfs(config.professionals);
       if (config.schedules) setSchedules(config.schedules);
+      if (config.contactInfo) setContactInfo(config.contactInfo);
     }
   }, [config]);
 
   const handleSaveConfig = async () => {
-    await saveConfig({ services: editServices, professionals: editProfs, schedules });
+    await saveConfig({ services: editServices, professionals: editProfs, schedules, contactInfo });
     setConfigSaved(true);
     setTimeout(() => setConfigSaved(false), 2500);
   };
@@ -513,6 +520,20 @@ export default function AdminPage() {
                 style={{background:"rgba(201,162,39,.08)",border:"1px dashed rgba(201,162,39,.3)",color:"#c9a227",borderRadius:10,padding:"10px 20px",cursor:"pointer",fontSize:14,width:"100%",marginBottom:32}}>
                 + Añadir barbero
               </button>
+              {/* CONTACT INFO */}
+              <h3 style={{fontSize:16,marginBottom:16,color:"#c9a227",marginTop:8}}>Información de contacto</h3>
+              <div style={{background:"var(--bg3)",border:"1px solid #2a2a2a",borderRadius:10,padding:16,marginBottom:32,display:"grid",gap:12}}>
+                {[["📍 Dirección","address"],["📞 Teléfono","phone"],["✉️ Email","email"],["🕐 Horario","hours"]].map(([label,key])=>(
+                  <div key={key}>
+                    <label style={{display:"block",fontSize:12,fontWeight:700,color:"#6b6258",textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>{label}</label>
+                    {key==="address"||key==="hours"
+                      ? <textarea rows={2} style={{width:"100%",background:"#141414",border:"1px solid #333",borderRadius:8,padding:"10px 12px",color:"#f0ece3",fontFamily:"sans-serif",fontSize:14,outline:"none",resize:"vertical"}} value={contactInfo[key]} onChange={(e)=>setContactInfo({...contactInfo,[key]:e.target.value})}/>
+                      : <input style={{width:"100%",background:"#141414",border:"1px solid #333",borderRadius:8,padding:"10px 12px",color:"#f0ece3",fontFamily:"sans-serif",fontSize:14,outline:"none"}} value={contactInfo[key]} onChange={(e)=>setContactInfo({...contactInfo,[key]:e.target.value})}/>
+                    }
+                  </div>
+                ))}
+              </div>
+
               <button onClick={handleSaveConfig}
                 style={{width:"100%",padding:16,background:configSaved?"rgba(39,174,96,.2)":"linear-gradient(135deg,#c9a227,#8a6d18)",border:configSaved?"1px solid rgba(39,174,96,.4)":"none",color:configSaved?"rgba(39,174,96,.9)":"#000",borderRadius:12,cursor:"pointer",fontFamily:"sans-serif",fontSize:16,fontWeight:700}}>
                 {configSaved?"Guardado correctamente":"Guardar cambios"}

@@ -555,7 +555,7 @@ function Landing({ onBook, setSubPage, professionals = PROFESSIONALS, services =
         <div className="hero-bg" />
         <div className="hero-lines" />
         <div className="hero-content page-enter">
-          <h1>Nicko's <span>Barber</span></h1>
+          <h1>Tu <span>barbería</span></h1>
           <p>Donde la tradición y la precisión se encuentran. Define tu estilo con los mejores profesionales.</p>
           <div className="hero-actions">
             <button className="btn-primary" onClick={onBook}>Reservar Cita</button>
@@ -642,9 +642,17 @@ function EquipoPage({ onBack, onBook, professionals = PROFESSIONALS }: any) {
   );
 }
 
-function ContactoPage({ onBack }) {
+function ContactoPage({ onBack, contactInfo }: any) {
   const [sent, setSent] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", msg: "" });
+
+  const info = contactInfo || {
+    address: "Calle del Barbero, 45\n28004 Madrid, España",
+    phone: "+34 910 987 654",
+    email: "hola@nickosbarber.es",
+    hours: "Lun–Sáb: 10:00 – 21:00\nDomingo: Cerrado",
+  };
+
   return (
     <div className="section page-enter" style={{ paddingTop: 96 }}>
       <button className="btn-back" onClick={onBack} style={{ marginBottom: 32 }}>← Volver</button>
@@ -676,7 +684,7 @@ function ContactoPage({ onBack }) {
         </div>
         <div>
           <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, marginBottom: 24 }}>Información</h3>
-          {[["📍", "Dirección", "Calle del Barbero, 45\n28004 Madrid, España"], ["📞", "Teléfono", "+34 910 987 654"], ["✉️", "Email", "hola@tubarberia.es"], ["🕐", "Horario", "Lun–Sáb: 10:00 – 21:00\nDomingo: Cerrado"]].map(([ico, tit, txt]) => (
+          {[["📍", "Dirección", info.address], ["📞", "Teléfono", info.phone], ["✉️", "Email", info.email], ["🕐", "Horario", info.hours]].map(([ico, tit, txt]) => (
             <div key={tit} className="contact-info-item">
               <span style={{ fontSize: 20 }}>{ico}</span>
               <div>
@@ -1419,7 +1427,7 @@ export default function App() {
         <>
           {subPage === "home" && <Landing onBook={() => goTo("booking")} setSubPage={setSubPage} professionals={liveProfessionals} services={liveServices} />}
           {subPage === "equipo" && <EquipoPage onBack={() => setSubPage("home")} onBook={() => goTo("booking")} professionals={liveProfessionals} />}
-          {subPage === "contacto" && <ContactoPage onBack={() => setSubPage("home")} />}
+          {subPage === "contacto" && <ContactoPage onBack={() => setSubPage("home")} contactInfo={appConfig?.contactInfo} />}
           <footer className="footer">
             <div className="footer-logo">Nicko's Barber</div>
             <p>© {new Date().getFullYear()} Todos los derechos reservados</p>
