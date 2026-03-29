@@ -555,7 +555,7 @@ function Landing({ onBook, setSubPage, professionals = PROFESSIONALS, services =
         <div className="hero-bg" />
         <div className="hero-lines" />
         <div className="hero-content page-enter">
-          <h1>Tu <span>barbería</span></h1>
+          <h1>Nicko's <span>Barber</span></h1>
           <p>Donde la tradición y la precisión se encuentran. Define tu estilo con los mejores profesionales.</p>
           <div className="hero-actions">
             <button className="btn-primary" onClick={onBook}>Reservar Cita</button>
